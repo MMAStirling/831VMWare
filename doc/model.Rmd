@@ -1,0 +1,160 @@
+---
+title: "Model"
+author: "Paul"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_depth: 3
+    toc_float: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
+library(drake)
+library(tidyverse)
+library(ggfortify)
+theme_set(theme_light())
+```
+
+```{r}
+# loadd(preprocessed)
+```
+
+## Imputation
+
+```{r}
+loadd(imputed)
+```
+
+## PCA
+
+```{r}
+pca_df <- imputed$train %>% select(-target)
+```
+```{r}
+skimr::skim(pca_df)
+```
+
+```{r}
+pca <- prcomp(~ . , data = pca_df)
+```
+
+```{r}
+summary(pca)
+```
+
+Based on the PCA results, we need to get 25 components to reach above 90% of total variance; 35 components if 95% of total variance.
+
+```{r}
+autoplot(pca, data = imputed$train, colour = 'target')
+```
+
+## Logistic Regression
+
+Use cross validation to decide how many PCs to keep for simple logistic regression.
+
+A big problem with the data is class imbalance:
+
+```{r}
+imputed$train %>% 
+  count(target, sort = T) %>% 
+  mutate(percentage = n/sum(n))
+```
+
+So 97% of the target is 0.
+
+```{r}
+resample_rec <- recipe(target ~ . , data = imputed$train) %>% 
+  step_smote(target)
+
+```
+
+```{r}
+resampled <- resample_rec %>% prep %>% juice
+```
+
+```{r}
+resampled %>% 
+  count(target, sort = T) %>% 
+  mutate(percentage = n/sum(n))
+```
+
+Now that is much better.
+
+```{r}
+logistic_rec <- resample_rec %>% 
+  step_pca(all_predictors(), num_comp = tune())
+```
+
+```{r}
+# pca_result <- logistic_rec %>% prep %>% juice
+```
+
+
+```{r}
+logistic_result <- readd(fit_logistics)
+```
+
+```{r}
+logistic_result %>% 
+  show_best(metric = "mcc")
+```
+
+wow! 96% accuracy is pretty nice. but the downside is, this points to selecting 35 principal components, the very limit of the grid. But happy for the result already. In the spirit of minimal working product, we are good.
+```{r}
+autoplot(logistic_result)
+```
+
+```{r}
+loadd(logistic_wfl)
+
+logistic_final_wfl <- logistic_wfl %>% 
+  finalize_workflow(logistic_result %>% 
+  select_best(metric = "mcc")) 
+logistic_final_fit <- logistic_final_wfl %>% fit(imputed$train)
+```
+
+```{r}
+vip::vip(logistic_final_fit %>% pull_workflow_fit())
+```
+
+See how model does with test set
+
+```{r}
+logistic_final_fit %>% 
+  predict(new_data = imputed$test) %>% 
+  bind_cols(imputed$test["target"]) %>% 
+  conf_mat(target, .pred_class)
+```
+
+## Penalized Regression
+
+## Analysis
+
+## Reproducibility
+
+<details><summary>Reproducibility receipt</summary>
+
+```{r}
+## datetime
+Sys.time()
+
+## repository
+if(requireNamespace('git2r', quietly = TRUE)) {
+  git2r::repository()
+} else {
+  c(
+    system2("git", args = c("log", "--name-status", "-1"), stdout = TRUE),
+    system2("git", args = c("remote", "-v"), stdout = TRUE)
+  )
+}
+
+## session info
+sessionInfo()
+```
+
+</details>

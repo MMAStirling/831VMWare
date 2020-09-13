@@ -1,8 +1,15 @@
 ---
-title: "Untitled Draft"
-author: "Report Author"
+title: "Explore"
+author: "Paul"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-output: html_document
+output: 
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_depth: 3
+    toc_float: true
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
