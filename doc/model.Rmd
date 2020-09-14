@@ -70,7 +70,6 @@ So 97% of the target is 0.
 ```{r}
 resample_rec <- recipe(target ~ . , data = imputed$train) %>% 
   step_smote(target)
-
 ```
 
 ```{r}
@@ -100,11 +99,20 @@ logistic_result <- readd(fit_logistics)
 ```
 
 ```{r}
-logistic_result %>% 
-  show_best(metric = "mcc")
+logistic_result$.notes %>% 
+  .[[1]] %>% 
+  .[[1]]
 ```
 
-wow! 96% accuracy is pretty nice. but the downside is, this points to selecting 35 principal components, the very limit of the grid. But happy for the result already. In the spirit of minimal working product, we are good.
+
+```{r}
+logistic_result %>% 
+  show_best(metric = "accuracy")
+```
+
+wow! 85% accuracy is pretty nice. but the downside is, this points to selecting 35 principal components, the very limit of the grid. Next step is probably to explore the grid from 30 to 45.
+
+But happy for the result already. In the spirit of minimal working product, we are good.
 ```{r}
 autoplot(logistic_result)
 ```
@@ -133,7 +141,39 @@ logistic_final_fit %>%
 
 ## Penalized Regression
 
-## Analysis
+```{r}
+loadd(fit_penalized)
+```
+
+```{r}
+fit_penalized$cv %>% autoplot()
+```
+
+```{r}
+fit_penalized$cv %>% show_best(metric = "accuracy")
+```
+```{r}
+fit_penalized$cv %>% show_best(metric = "mcc")
+```
+```{r}
+penalized_final_wfl <- fit_penalized$wfl %>% 
+  finalize_workflow(fit_penalized$cv %>% 
+  select_best(metric = "mcc")) 
+penalized_final_fit <- penalized_final_wfl %>% fit(imputed$train)
+```
+
+```{r}
+vip::vip(penalized_final_fit %>% pull_workflow_fit())
+```
+
+See how model does with test set
+
+```{r}
+penalized_final_fit %>% 
+  predict(new_data = imputed$test) %>% 
+  bind_cols(imputed$test["target"]) %>% 
+  conf_mat(target, .pred_class)
+```
 
 ## Reproducibility
 

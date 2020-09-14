@@ -23,6 +23,8 @@ the_plan <-
    
    fit_logistics = logistics(imputed, pre_rec),
    
+   fit_penalized = penalized(imputed, pre_rec),
+   
    model_vm = target(
       command = {
          rmarkdown::render(knitr_in("doc/model.Rmd"))
